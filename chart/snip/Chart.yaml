@@ -1,0 +1,15 @@
+apiVersion: v2
+name: snip
+description: A self-hosted URL shortener with click analytics
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: postgresql
+    version: "16.6.4"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "20.11.3"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled

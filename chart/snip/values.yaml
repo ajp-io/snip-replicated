@@ -1,0 +1,142 @@
+## Snip — URL shortener Helm chart values
+
+## Number of app replicas
+replicaCount: 1
+
+image:
+  repository: ttl.sh/snip
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+## Base URL of the app (used to build short links)
+## e.g. https://snip.example.com
+baseURL: ""
+
+service:
+  ## ClusterIP | NodePort | LoadBalancer
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+## Optional Ingress
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: snip.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+## TLS / certificate mode
+## Options: auto | manual | selfsigned
+tls:
+  mode: selfsigned
+  ## mode: manual — supply an existing Secret name
+  secretName: ""
+  ## mode: auto — cert-manager ClusterIssuer name
+  issuerName: ""
+
+## Resource requests and limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+## Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+
+## External database (BYO) — set postgresql.enabled=false to use this
+externalDatabase:
+  host: ""
+  port: 5432
+  name: snip
+  user: snip
+  ## Name of an existing Secret with key "password"
+  existingSecret: ""
+  password: ""
+
+## External Redis (BYO) — set redis.enabled=false to use this
+externalRedis:
+  host: ""
+  port: 6379
+  ## Name of an existing Secret with key "password"
+  existingSecret: ""
+  password: ""
+
+## Embedded PostgreSQL subchart (bitnami/postgresql)
+## Set enabled: false to use externalDatabase above
+postgresql:
+  enabled: true
+  auth:
+    username: snip
+    password: snip
+    database: snip
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+## Embedded Redis subchart (bitnami/redis)
+## Set enabled: false to use externalRedis above
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+## Pod annotations
+podAnnotations: {}
+
+## Pod security context
+podSecurityContext: {}
+
+## Container security context
+securityContext: {}
+
+## Node selector, tolerations, affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+## Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
