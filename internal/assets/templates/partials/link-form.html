@@ -1,0 +1,38 @@
+{{define "link-form"}}
+<form
+  hx-post="/links"
+  hx-target="#links-table-body"
+  hx-swap="afterbegin"
+  class="bg-gray-900 border border-gray-700 rounded-lg p-6 mb-8">
+  <h2 class="text-lg font-semibold mb-4">New Link</h2>
+  <div class="grid grid-cols-2 gap-4">
+    <div class="col-span-2">
+      <label class="block text-xs text-gray-400 mb-1">Destination URL <span class="text-red-400">*</span></label>
+      <input type="url" name="destination" required placeholder="https://example.com/long-path"
+        class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">Custom slug (optional)</label>
+      <input type="text" name="slug" placeholder="my-link"
+        class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">Label (optional)</label>
+      <input type="text" name="label" placeholder="Product Hunt"
+        class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">Expires (optional)</label>
+      <input type="date" name="expires_at"
+        class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+    </div>
+    <div class="flex items-end">
+      <button type="submit"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-6 py-2 rounded-md w-full">
+        Create Link
+      </button>
+    </div>
+  </div>
+  {{if .Error}}<p class="text-red-400 text-sm mt-3">{{.Error}}</p>{{end}}
+</form>
+{{end}}

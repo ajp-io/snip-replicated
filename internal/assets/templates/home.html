@@ -1,0 +1,26 @@
+{{template "base" .}}
+{{define "content"}}
+<div class="mt-6">
+  {{if .Links}}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-gray-500 text-xs uppercase border-b border-gray-800">
+        <th class="pb-3 pr-4">Slug</th>
+        <th class="pb-3 pr-4">Destination</th>
+        <th class="pb-3 pr-4">Label</th>
+        <th class="pb-3 pr-4">Clicks</th>
+        <th class="pb-3 pr-4">Expires</th>
+        <th class="pb-3"></th>
+      </tr>
+    </thead>
+    <tbody id="links-table-body">
+      {{range .Links}}
+      {{template "link-row" .}}
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-gray-500 text-center py-16">No links yet. Create one above.</p>
+  {{end}}
+</div>
+{{end}}

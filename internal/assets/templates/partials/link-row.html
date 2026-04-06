@@ -1,0 +1,14 @@
+{{define "link-row"}}
+<tr class="border-b border-gray-800 hover:bg-gray-900">
+  <td class="py-3 pr-4 font-mono text-indigo-400">{{.Slug}}</td>
+  <td class="py-3 pr-4 text-gray-400 max-w-xs truncate">{{.Destination}}</td>
+  <td class="py-3 pr-4 text-gray-300">{{if .Label}}{{.Label}}{{else}}<span class="text-gray-600">—</span>{{end}}</td>
+  <td class="py-3 pr-4 text-emerald-400 font-semibold">{{.TotalClicks}}</td>
+  <td class="py-3 pr-4 text-gray-400">
+    {{if .ExpiresAt}}{{.ExpiresAt.Format "Jan 2"}}{{else}}<span class="text-gray-600">—</span>{{end}}
+  </td>
+  <td class="py-3">
+    <a href="/links/{{.ID}}" class="text-indigo-400 hover:text-indigo-300 text-xs">View</a>
+  </td>
+</tr>
+{{end}}
