@@ -3,7 +3,9 @@ package handler
 import (
 	"errors"
 	"html/template"
+	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -31,7 +33,9 @@ func NewLinksHandler(store db.Store, cache cache.Cache, rowTmpl, detailTmpl *tem
 // Form serves GET /links/new — the inline create-link form.
 func (h *LinksHandler) Form(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.detailTmpl.ExecuteTemplate(w, "link-form", nil)
+	if err := h.detailTmpl.ExecuteTemplate(w, "link-form", nil); err != nil {
+		log.Printf("link-form template error: %v", err)
+	}
 }
 
 // Create handles POST /links.
@@ -49,6 +53,13 @@ func (h *LinksHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if destination == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		h.renderFormError(w, "Destination URL is required.")
+		return
+	}
+
+	u, err := url.Parse(destination)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		h.renderFormError(w, "Destination must be a valid http:// or https:// URL.")
 		return
 	}
 
@@ -87,13 +98,17 @@ func (h *LinksHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.rowTmpl.ExecuteTemplate(w, "link-row", model.LinkWithCount{Link: *link})
+	if err := h.rowTmpl.ExecuteTemplate(w, "link-row", model.LinkWithCount{Link: *link}); err != nil {
+		log.Printf("link-row template error: %v", err)
+	}
 }
 
 func (h *LinksHandler) renderFormError(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if h.detailTmpl != nil {
-		h.detailTmpl.ExecuteTemplate(w, "link-form", map[string]string{"Error": msg})
+		if err := h.detailTmpl.ExecuteTemplate(w, "link-form", map[string]string{"Error": msg}); err != nil {
+			log.Printf("link-form error template error: %v", err)
+		}
 	}
 }
 
@@ -128,12 +143,14 @@ func (h *LinksHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	referrers, _ := h.store.GetTopReferrers(r.Context(), id)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.detailTmpl.Execute(w, DetailData{
+	if err := h.detailTmpl.Execute(w, DetailData{
 		Link:      link,
 		Daily:     daily,
 		Referrers: referrers,
 		ShortURL:  h.baseURL + "/" + link.Slug,
-	})
+	}); err != nil {
+		log.Printf("detail template error: %v", err)
+	}
 }
 
 // Delete handles DELETE /links/:id.
@@ -145,10 +162,16 @@ func (h *LinksHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch link first for cache eviction (ignore not-found, it'll be caught by DeleteLink)
 	link, _ := h.store.GetLinkByID(r.Context(), id)
 
-	if err := h.store.DeleteLink(r.Context(), id); errors.Is(err, db.ErrNotFound) {
-		http.NotFound(w, r)
+	err = h.store.DeleteLink(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 

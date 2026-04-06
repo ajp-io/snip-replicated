@@ -2,6 +2,7 @@ package handler
 
 import (
 	"html/template"
+	"log"
 	"net/http"
 
 	"github.com/ajp-io/snips-replicated/internal/db"
@@ -30,5 +31,7 @@ func (h *DashboardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.tmpl.Execute(w, DashboardData{Links: links})
+	if err := h.tmpl.Execute(w, DashboardData{Links: links}); err != nil {
+		log.Printf("dashboard template error: %v", err)
+	}
 }

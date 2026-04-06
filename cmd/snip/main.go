@@ -67,7 +67,10 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	// Static files
-	staticSub, _ := fs.Sub(assets.Static, "static")
+	staticSub, err := fs.Sub(assets.Static, "static")
+	if err != nil {
+		log.Fatalf("static fs: %v", err)
+	}
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
 
 	r.Get("/healthz", healthH.ServeHTTP)
@@ -81,8 +84,11 @@ func main() {
 	r.Get("/{slug}", redirectH.ServeHTTP)
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: r,
+		Addr:         ":" + cfg.Port,
+		Handler:      r,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// Graceful shutdown

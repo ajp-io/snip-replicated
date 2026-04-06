@@ -130,7 +130,9 @@ func (h *RedirectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ttl = remaining
 		}
 	}
-	_ = h.cache.Set(ctx, cacheKeyPrefix+slug, encodeCache(link.ID, link.Destination), ttl)
+	if ttl > 0 {
+		_ = h.cache.Set(ctx, cacheKeyPrefix+slug, encodeCache(link.ID, link.Destination), ttl)
+	}
 
 	// 5. Record click asynchronously.
 	h.recorder.Record(link.ID, r.Referer())
