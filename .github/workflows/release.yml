@@ -82,7 +82,7 @@ jobs:
         with:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           kubernetes-distribution: kind
-          kubernetes-version: v1.29.0
+          kubernetes-version: "1.32.11"
           cluster-name: release-${{ github.run_id }}
           ttl: 30m
 
