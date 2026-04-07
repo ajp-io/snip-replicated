@@ -5,8 +5,11 @@ on:
     branches: [main]
 
 jobs:
-  release:
+  build-and-release:
     runs-on: ubuntu-latest
+    outputs:
+      channel-slug: ${{ steps.create-release.outputs.channel-slug }}
+      release-version: 0.0.0-${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,19 +36,118 @@ jobs:
         with:
           cmd: yq -i '.image.tag = "${{ github.sha }}"' chart/snip/values.yaml
 
+      - name: Lint chart
+        run: helm lint chart/snip
+
       - name: Package Helm chart
         id: package
         run: |
-          helm package chart/snip --destination /tmp/chart-pkg --app-version=${{ github.sha }}
+          helm package chart/snip --destination /tmp/chart-pkg \
+            --app-version=${{ github.sha }} \
+            --version=0.0.0-${{ github.sha }}
           echo "path=$(ls /tmp/chart-pkg/*.tgz)" >> $GITHUB_OUTPUT
 
       - name: Create Replicated release
-        uses: replicatedhq/replicated-actions/create-release@v1
         id: create-release
+        uses: replicatedhq/replicated-actions/create-release@v1
         with:
           app-slug: snip-enterprise
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: ${{ steps.package.outputs.path }}
+          promote-channel: pr-${{ github.event.pull_request.number }}
+          version: 0.0.0-${{ github.sha }}
 
-      - name: Lint chart
-        run: helm lint chart/snip
+  test:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create test customer
+        id: create-customer
+        uses: replicatedhq/replicated-actions/create-customer@v1
+        with:
+          app-slug: snip-enterprise
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-name: pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          channel-slug: ${{ needs.build-and-release.outputs.channel-slug }}
+          customer-email: pr-${{ github.event.pull_request.number }}@example.com
+          expires-in: 1
+          is-kots-install-enabled: "false"
+
+      - name: Create cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          kubernetes-distribution: kind
+          kubernetes-version: "1.32.11"
+          cluster-name: pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          ttl: 30m
+
+      - name: Create namespace
+        run: |
+          echo "${{ steps.create-cluster.outputs.cluster-kubeconfig }}" > /tmp/kubeconfig.yaml
+          kubectl create namespace snip --kubeconfig /tmp/kubeconfig.yaml
+
+      - name: Install cert-manager
+        run: |
+          helm repo add jetstack https://charts.jetstack.io --force-update
+          helm install cert-manager jetstack/cert-manager \
+            --namespace cert-manager \
+            --create-namespace \
+            --set crds.enabled=true \
+            --kubeconfig /tmp/kubeconfig.yaml
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cert-manager \
+            --timeout=90s --namespace cert-manager \
+            --kubeconfig /tmp/kubeconfig.yaml
+
+      - name: Install app on cluster
+        uses: replicatedhq/replicated-actions/helm-install@v1
+        with:
+          helm-path: helm
+          kubeconfig: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+          registry-username: pr-${{ github.event.pull_request.number }}@example.com
+          registry-password: ${{ steps.create-customer.outputs.license-id }}
+          chart: oci://registry.replicated.com/snip-enterprise/${{ needs.build-and-release.outputs.channel-slug }}/snip
+          name: snip
+          version: ${{ needs.build-and-release.outputs.release-version }}
+          namespace: snip
+          values: |
+            baseURL: http://snip.snip.svc.cluster.local
+
+      - name: Test health endpoint
+        run: |
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=snip \
+            --timeout=120s --namespace snip \
+            --kubeconfig /tmp/kubeconfig.yaml
+          kubectl port-forward svc/snip 8080:80 \
+            --namespace snip \
+            --kubeconfig /tmp/kubeconfig.yaml &
+          sleep 5
+          curl -sf http://localhost:8080/healthz
+
+      - name: Remove cluster
+        if: always()
+        uses: replicatedhq/replicated-actions/remove-cluster@v1
+        continue-on-error: true
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+
+      - name: Archive test customer
+        if: always()
+        uses: replicatedhq/replicated-actions/archive-customer@v1
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-id: ${{ steps.create-customer.outputs.customer-id }}
+
+  cleanup:
+    needs: [build-and-release, test]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Archive PR channel
+        uses: replicatedhq/replicated-actions/archive-channel@v1
+        with:
+          app-slug: snip-enterprise
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          channel-slug: ${{ needs.build-and-release.outputs.channel-slug }}
