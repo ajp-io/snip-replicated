@@ -1,0 +1,49 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ajpio/snip:${{ github.sha }}
+          platforms: linux/amd64
+
+      - name: Set image tag in chart values
+        uses: mikefarah/yq@v4
+        with:
+          cmd: yq -i '.image.tag = "${{ github.sha }}"' chart/snip/values.yaml
+
+      - name: Create Replicated release
+        uses: replicatedhq/replicated-actions/create-release@v1
+        id: create-release
+        with:
+          app-slug: snip-enterprise
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          chart: chart/snip
+
+      - name: Run compatibility matrix
+        uses: replicatedhq/replicated-actions/compatibility-matrix@v1
+        with:
+          app-slug: snip-enterprise
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          kubernetes-target-version-range: ">=1.28.0"
+          releases-to-test: ${{ steps.create-release.outputs.release-sequence }}
