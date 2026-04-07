@@ -1,0 +1,15 @@
+# Build stage
+FROM --platform=linux/amd64 golang:1.25-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /snip ./cmd/snip
+
+# Runtime stage
+FROM --platform=linux/amd64 alpine:3.20
+RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /app
+COPY --from=builder /snip /app/snip
+EXPOSE 8080
+ENTRYPOINT ["/app/snip"]

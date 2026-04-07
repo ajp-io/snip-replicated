@@ -1,0 +1,79 @@
+{{template "base" .}}
+{{define "title"}}{{.Link.Slug}} — Snip{{end}}
+{{define "content"}}
+<div class="mt-6">
+  <a href="/" class="text-indigo-400 text-sm hover:text-indigo-300">← All links</a>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mt-4">
+    <div class="flex justify-between items-start">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <span class="font-mono text-2xl font-bold text-indigo-400">{{.Link.Slug}}</span>
+          {{if .Link.Label}}<span class="bg-indigo-950 text-indigo-300 text-xs px-2 py-1 rounded">{{.Link.Label}}</span>{{end}}
+        </div>
+        <p class="text-gray-400 text-sm break-all">→ {{.Link.Destination}}</p>
+      </div>
+    </div>
+    <div class="flex gap-6 mt-4 pt-4 border-t border-gray-800 text-xs text-gray-500">
+      <span>Created <span class="text-gray-300">{{.Link.CreatedAt.Format "Jan 2, 2006"}}</span></span>
+      <span>Expires <span class="text-gray-300">{{if .Link.ExpiresAt}}{{.Link.ExpiresAt.Format "Jan 2, 2006"}}{{else}}—{{end}}</span></span>
+      <span>Short URL <span class="text-indigo-400 font-mono">{{.ShortURL}}</span></span>
+      <span class="ml-auto">
+        <button
+          hx-delete="/links/{{.Link.ID}}"
+          hx-confirm="Delete this link?"
+          class="text-red-500 hover:text-red-400">Delete</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mt-4">
+    <h3 class="text-sm font-semibold mb-4">Clicks over time (last 30 days)</h3>
+    <canvas id="clicks-chart" height="80"></canvas>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-6 mt-4">
+    <h3 class="text-sm font-semibold mb-4">Top referrers</h3>
+    {{if .Referrers}}
+    <div class="space-y-3">
+      {{range .Referrers}}
+      <div class="flex items-center gap-3">
+        <span class="font-mono text-xs text-gray-400 w-48 truncate">{{.Referrer}}</span>
+        <div class="flex-1 bg-gray-800 rounded h-1.5">
+          <div class="bg-indigo-500 h-1.5 rounded" style="width: {{.Clicks}}%"></div>
+        </div>
+        <span class="text-sm font-semibold text-gray-200 w-10 text-right">{{.Clicks}}</span>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="text-gray-600 text-sm">No clicks recorded yet.</p>
+    {{end}}
+  </div>
+</div>
+
+<script>
+(function() {
+  const labels = [{{range .Daily}}"{{.Day.Format "Jan 2"}}",{{end}}];
+  const data   = [{{range .Daily}}{{.Clicks}},{{end}}];
+  new Chart(document.getElementById('clicks-chart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: '#4f46e5',
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } },
+        y: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } }
+      }
+    }
+  });
+})();
+</script>
+{{end}}

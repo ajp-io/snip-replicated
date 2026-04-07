@@ -1,0 +1,57 @@
+{{/*
+  tls.yaml — cert-manager resources for TLS certificate management.
+
+  mode: selfsigned — creates a namespaced SelfSigned Issuer + Certificate.
+                     cert-manager generates a key pair and stores it in <fullname>-tls.
+  mode: auto        — creates a Certificate referencing a user-supplied ClusterIssuer.
+                     cert-manager provisions the cert (e.g. via Let's Encrypt ACME).
+  mode: manual      — no resources created; user pre-creates the Secret named tls.secretName.
+
+  Requires cert-manager to be installed in the cluster for selfsigned and auto modes.
+*/}}
+{{- if eq .Values.tls.mode "selfsigned" }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "snip.fullname" . }}-selfsigned
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "snip.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "snip.fullname" . }}-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "snip.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "snip.tlsSecretName" . }}
+  issuerRef:
+    name: {{ include "snip.fullname" . }}-selfsigned
+    kind: Issuer
+  dnsNames:
+    {{- range .Values.ingress.hosts }}
+    - {{ .host | quote }}
+    {{- end }}
+{{- end }}
+{{- if eq .Values.tls.mode "auto" }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "snip.fullname" . }}-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "snip.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "snip.tlsSecretName" . }}
+  issuerRef:
+    name: {{ .Values.tls.issuerName }}
+    kind: ClusterIssuer
+  dnsNames:
+    {{- range .Values.ingress.hosts }}
+    - {{ .host | quote }}
+    {{- end }}
+{{- end }}
