@@ -35,6 +35,9 @@ jobs:
         with:
           cmd: yq -i '.image.tag = "${{ github.sha }}"' chart/snip/values.yaml
 
+      - name: Lint chart
+        run: helm lint chart/snip
+
       - name: Package Helm chart
         id: package
         run: |
@@ -49,9 +52,6 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: ${{ steps.package.outputs.path }}
 
-      - name: Lint chart
-        run: helm lint chart/snip
-
       - name: Promote to Unstable
         uses: replicatedhq/replicated-actions/promote-release@v1
         with:
@@ -59,3 +59,4 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           channel-to: Unstable
           release-sequence: ${{ steps.create-release.outputs.release-sequence }}
+          release-version: ${{ github.sha }}

@@ -33,6 +33,9 @@ jobs:
         with:
           cmd: yq -i '.image.tag = "${{ github.sha }}"' chart/snip/values.yaml
 
+      - name: Lint chart
+        run: helm lint chart/snip
+
       - name: Package Helm chart
         id: package
         run: |
@@ -46,6 +49,3 @@ jobs:
           app-slug: snip-enterprise
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: ${{ steps.package.outputs.path }}
-
-      - name: Lint chart
-        run: helm lint chart/snip
