@@ -35,13 +35,19 @@ jobs:
         with:
           cmd: yq -i '.image.tag = "${{ github.sha }}"' chart/snip/values.yaml
 
+      - name: Package Helm chart
+        id: package
+        run: |
+          helm package chart/snip --destination /tmp/chart-pkg --app-version=${{ github.sha }}
+          echo "path=$(ls /tmp/chart-pkg/*.tgz)" >> $GITHUB_OUTPUT
+
       - name: Create Replicated release
         uses: replicatedhq/replicated-actions/create-release@v1
         id: create-release
         with:
           app-slug: snip-enterprise
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          chart: chart/snip
+          chart: ${{ steps.package.outputs.path }}
 
       - name: Lint chart
         run: helm lint chart/snip
