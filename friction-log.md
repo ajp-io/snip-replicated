@@ -29,3 +29,13 @@
 **What went wrong:** `helm dependency build` downloaded `.tgz` files into `charts/` but Helm v4.1.3 still reported "found in Chart.yaml, but missing in charts/ directory". Helm v3 accepted `.tgz` files; Helm v4 requires them to be extracted as directories.
 
 **How it was resolved:** Manually extracted the tarballs: `tar xzf postgresql-16.6.4.tgz && tar xzf redis-20.11.3.tgz` inside `charts/`. Will need to investigate whether `helm dependency update` behavior changed in v4 or if a config option controls this.
+
+---
+
+## 2026-04-07 — `replicatedhq/replicated-actions/compatibility-matrix` does not exist
+
+**What was attempted:** Added `replicatedhq/replicated-actions/compatibility-matrix@v1` step to PR and release workflows based on Replicated documentation references.
+
+**What went wrong:** GitHub Actions failed immediately at setup with "Can't find 'action.yml', 'action.yaml' or 'Dockerfile' for action". The action does not exist in the `replicatedhq/replicated-actions` repo.
+
+**How it was resolved:** Checked the actual repo contents (`gh api repos/replicatedhq/replicated-actions/contents`). The correct compatibility matrix pattern uses separate actions: `create-customer`, `create-cluster`, `helm-install`, `remove-cluster`, `archive-customer`. This requires the image to be proxied through Replicated (Tier 2 task 2.2). For Tier 1, replaced with `helm lint chart/snip` as a basic chart validation step. Full CMX testing can be added after image proxy is configured in Tier 2.
