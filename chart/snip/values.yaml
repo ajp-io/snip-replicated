@@ -4,7 +4,7 @@
 replicaCount: 1
 
 image:
-  repository: ttl.sh/snip
+  repository: ajpio/snip
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 
@@ -31,12 +31,16 @@ ingress:
   tls: []
 
 ## TLS / certificate mode
-## Options: auto | manual | selfsigned
+## Requires ingress.enabled: true to be exposed via HTTPS.
+## Options:
+##   selfsigned — cert-manager generates a self-signed cert (requires cert-manager in cluster)
+##   auto       — cert-manager provisions via a ClusterIssuer, e.g. Let's Encrypt (requires cert-manager)
+##   manual     — reference a pre-existing TLS Secret; no cert-manager required
 tls:
   mode: selfsigned
-  ## mode: manual — supply an existing Secret name
+  ## mode: manual — name of the pre-existing Secret containing tls.crt and tls.key
   secretName: ""
-  ## mode: auto — cert-manager ClusterIssuer name
+  ## mode: auto — name of the ClusterIssuer to use (e.g. letsencrypt-prod)
   issuerName: ""
 
 ## Resource requests and limits
