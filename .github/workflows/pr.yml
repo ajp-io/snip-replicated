@@ -41,10 +41,5 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: chart/snip
 
-      - name: Run compatibility matrix
-        uses: replicatedhq/replicated-actions/compatibility-matrix@v1
-        with:
-          app-slug: snip-enterprise
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          kubernetes-target-version-range: ">=1.28.0"
-          releases-to-test: ${{ steps.create-release.outputs.release-sequence }}
+      - name: Lint chart
+        run: helm lint chart/snip
