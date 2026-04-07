@@ -179,5 +179,10 @@ func (h *LinksHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		_ = h.cache.Del(r.Context(), cacheKeyPrefix+link.Slug)
 	}
 
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

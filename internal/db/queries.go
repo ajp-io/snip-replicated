@@ -18,7 +18,7 @@ func (d *DB) CreateLink(ctx context.Context, slug, destination, label string, ex
 	err := d.pool.QueryRow(ctx,
 		`INSERT INTO links (slug, destination, label, expires_at)
 		 VALUES ($1, $2, NULLIF($3, ''), $4)
-		 RETURNING id, slug, destination, label, expires_at, created_at`,
+		 RETURNING id, slug, destination, COALESCE(label, ''), expires_at, created_at`,
 		slug, destination, label, expiresAt,
 	).Scan(&link.ID, &link.Slug, &link.Destination, &link.Label, &link.ExpiresAt, &link.CreatedAt)
 	if err != nil {
@@ -30,7 +30,7 @@ func (d *DB) CreateLink(ctx context.Context, slug, destination, label string, ex
 func (d *DB) GetLinkBySlug(ctx context.Context, slug string) (*model.Link, error) {
 	link := &model.Link{}
 	err := d.pool.QueryRow(ctx,
-		`SELECT id, slug, destination, label, expires_at, created_at FROM links WHERE slug = $1`,
+		`SELECT id, slug, destination, COALESCE(label, ''), expires_at, created_at FROM links WHERE slug = $1`,
 		slug,
 	).Scan(&link.ID, &link.Slug, &link.Destination, &link.Label, &link.ExpiresAt, &link.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -42,7 +42,7 @@ func (d *DB) GetLinkBySlug(ctx context.Context, slug string) (*model.Link, error
 func (d *DB) GetLinkByID(ctx context.Context, id int64) (*model.Link, error) {
 	link := &model.Link{}
 	err := d.pool.QueryRow(ctx,
-		`SELECT id, slug, destination, label, expires_at, created_at FROM links WHERE id = $1`,
+		`SELECT id, slug, destination, COALESCE(label, ''), expires_at, created_at FROM links WHERE id = $1`,
 		id,
 	).Scan(&link.ID, &link.Slug, &link.Destination, &link.Label, &link.ExpiresAt, &link.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -53,7 +53,7 @@ func (d *DB) GetLinkByID(ctx context.Context, id int64) (*model.Link, error) {
 
 func (d *DB) ListLinksWithClickCounts(ctx context.Context) ([]model.LinkWithCount, error) {
 	rows, err := d.pool.Query(ctx,
-		`SELECT l.id, l.slug, l.destination, l.label, l.expires_at, l.created_at,
+		`SELECT l.id, l.slug, l.destination, COALESCE(l.label, ''), l.expires_at, l.created_at,
 		        COUNT(c.id) AS total_clicks
 		 FROM links l
 		 LEFT JOIN click_events c ON c.link_id = l.id

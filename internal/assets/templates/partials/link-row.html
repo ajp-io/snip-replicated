@@ -7,8 +7,15 @@
   <td class="py-3 pr-4 text-gray-400">
     {{if .ExpiresAt}}{{.ExpiresAt.Format "Jan 2"}}{{else}}<span class="text-gray-600">—</span>{{end}}
   </td>
-  <td class="py-3">
+  <td class="py-3 flex items-center gap-3">
     <a href="/links/{{.ID}}" class="text-indigo-400 hover:text-indigo-300 text-xs">View</a>
+    <button
+      onclick="navigator.clipboard.writeText(window.location.origin+'/{{.Slug}}').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})"
+      class="text-gray-400 hover:text-gray-200 text-xs">Copy</button>
+    <button
+      hx-delete="/links/{{.ID}}"
+      hx-confirm="Delete this link?"
+      class="text-red-500 hover:text-red-400 text-xs">Delete</button>
   </td>
 </tr>
 {{end}}

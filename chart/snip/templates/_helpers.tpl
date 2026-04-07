@@ -114,3 +114,16 @@ Key inside the postgres password Secret.
 {{- "password" }}
 {{- end }}
 {{- end }}
+
+{{/*
+Name of the TLS Secret — derived from tls.mode.
+  selfsigned / auto : managed by cert-manager, named <fullname>-tls
+  manual            : user-supplied, named by tls.secretName
+*/}}
+{{- define "snip.tlsSecretName" -}}
+{{- if eq .Values.tls.mode "manual" }}
+{{- .Values.tls.secretName }}
+{{- else }}
+{{- printf "%s-tls" (include "snip.fullname" .) }}
+{{- end }}
+{{- end }}

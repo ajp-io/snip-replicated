@@ -46,10 +46,21 @@ func main() {
 		log.Fatalf("redis: %v", err)
 	}
 
-	// Templates — parse base + page templates + partials
-	tmpl, err := template.ParseFS(assets.Templates, "templates/*.html", "templates/partials/*.html")
+	// Templates — parse separate sets per page so {{define "title"}} blocks
+	// in one page don't override another's {{block "title"}}.
+	homeTmpl, err := template.ParseFS(assets.Templates,
+		"templates/base.html", "templates/partials/*.html", "templates/home.html")
 	if err != nil {
-		log.Fatalf("templates: %v", err)
+		log.Fatalf("home template: %v", err)
+	}
+	detailTmpl, err := template.ParseFS(assets.Templates,
+		"templates/base.html", "templates/partials/*.html", "templates/link-detail.html")
+	if err != nil {
+		log.Fatalf("detail template: %v", err)
+	}
+	rowTmpl, err := template.ParseFS(assets.Templates, "templates/partials/*.html")
+	if err != nil {
+		log.Fatalf("row template: %v", err)
 	}
 
 	// Handlers
@@ -57,8 +68,8 @@ func main() {
 	defer recorder.Shutdown()
 
 	healthH := handler.NewHealthHandler(store, redisCache)
-	dashboardH := handler.NewDashboardHandler(store, tmpl)
-	linksH := handler.NewLinksHandler(store, redisCache, tmpl, tmpl, cfg.BaseURL)
+	dashboardH := handler.NewDashboardHandler(store, homeTmpl)
+	linksH := handler.NewLinksHandler(store, redisCache, rowTmpl, detailTmpl, cfg.BaseURL)
 	redirectH := handler.NewRedirectHandler(store, redisCache, recorder)
 
 	// Router
