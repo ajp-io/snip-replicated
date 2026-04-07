@@ -87,6 +87,8 @@ externalRedis:
 ## Set enabled: false to use externalDatabase above
 postgresql:
   enabled: true
+  image:
+    tag: latest
   auth:
     username: snip
     password: snip
@@ -107,6 +109,8 @@ postgresql:
 ## Set enabled: false to use externalRedis above
 redis:
   enabled: true
+  image:
+    tag: latest
   architecture: standalone
   auth:
     enabled: false
