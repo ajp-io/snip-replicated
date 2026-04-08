@@ -19,8 +19,9 @@ func TestRedirectHandler_CacheHit(t *testing.T) {
 	store := &stubStore{}
 	recorder := handler.NewClickRecorder(store, 10)
 	defer recorder.Shutdown()
+	sdk := noopSDKServer(t)
 
-	h := handler.NewRedirectHandler(store, cache, recorder)
+	h := handler.NewRedirectHandler(store, cache, recorder, sdk.URL)
 	r := chi.NewRouter()
 	r.Get("/{slug}", h.ServeHTTP)
 
@@ -38,8 +39,9 @@ func TestRedirectHandler_CacheMiss_DBHit(t *testing.T) {
 	store := &stubStore{link: &model.Link{ID: 1, Slug: "xyz", Destination: dest}}
 	recorder := handler.NewClickRecorder(store, 10)
 	defer recorder.Shutdown()
+	sdk := noopSDKServer(t)
 
-	h := handler.NewRedirectHandler(store, cache, recorder)
+	h := handler.NewRedirectHandler(store, cache, recorder, sdk.URL)
 	r := chi.NewRouter()
 	r.Get("/{slug}", h.ServeHTTP)
 
@@ -56,8 +58,9 @@ func TestRedirectHandler_NotFound(t *testing.T) {
 	store := &stubStore{getSlugErr: db.ErrNotFound}
 	recorder := handler.NewClickRecorder(store, 10)
 	defer recorder.Shutdown()
+	sdk := noopSDKServer(t)
 
-	h := handler.NewRedirectHandler(store, cache, recorder)
+	h := handler.NewRedirectHandler(store, cache, recorder, sdk.URL)
 	r := chi.NewRouter()
 	r.Get("/{slug}", h.ServeHTTP)
 
@@ -74,8 +77,9 @@ func TestRedirectHandler_Expired(t *testing.T) {
 	store := &stubStore{link: &model.Link{ID: 1, Slug: "exp", Destination: "https://x.com", ExpiresAt: &past}}
 	recorder := handler.NewClickRecorder(store, 10)
 	defer recorder.Shutdown()
+	sdk := noopSDKServer(t)
 
-	h := handler.NewRedirectHandler(store, cache, recorder)
+	h := handler.NewRedirectHandler(store, cache, recorder, sdk.URL)
 	r := chi.NewRouter()
 	r.Get("/{slug}", h.ServeHTTP)
 

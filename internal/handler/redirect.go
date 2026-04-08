@@ -83,13 +83,14 @@ func decodeCache(val string) (int64, string) {
 
 // RedirectHandler serves GET /:slug.
 type RedirectHandler struct {
-	store    db.Store
-	cache    cache.Cache
-	recorder *ClickRecorder
+	store       db.Store
+	cache       cache.Cache
+	recorder    *ClickRecorder
+	sdkEndpoint string
 }
 
-func NewRedirectHandler(store db.Store, cache cache.Cache, recorder *ClickRecorder) *RedirectHandler {
-	return &RedirectHandler{store: store, cache: cache, recorder: recorder}
+func NewRedirectHandler(store db.Store, cache cache.Cache, recorder *ClickRecorder, sdkEndpoint string) *RedirectHandler {
+	return &RedirectHandler{store: store, cache: cache, recorder: recorder, sdkEndpoint: sdkEndpoint}
 }
 
 func (h *RedirectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +102,7 @@ func (h *RedirectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		id, destination := decodeCache(raw)
 		if destination != "" {
 			h.recorder.Record(id, r.Referer())
+			go SendMetrics(context.Background(), h.store, h.sdkEndpoint)
 			http.Redirect(w, r, destination, http.StatusFound)
 			return
 		}
@@ -134,8 +136,9 @@ func (h *RedirectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = h.cache.Set(ctx, cacheKeyPrefix+slug, encodeCache(link.ID, link.Destination), ttl)
 	}
 
-	// 5. Record click asynchronously.
+	// 5. Record click asynchronously and update metrics.
 	h.recorder.Record(link.ID, r.Referer())
+	go SendMetrics(context.Background(), h.store, h.sdkEndpoint)
 
 	http.Redirect(w, r, link.Destination, http.StatusFound)
 }
