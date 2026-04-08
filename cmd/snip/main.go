@@ -68,7 +68,7 @@ func main() {
 	defer recorder.Shutdown()
 
 	healthH := handler.NewHealthHandler(store, redisCache)
-	dashboardH := handler.NewDashboardHandler(store, homeTmpl)
+	dashboardH := handler.NewDashboardHandler(store, homeTmpl, cfg.SDKEndpoint)
 	linksH := handler.NewLinksHandler(store, redisCache, rowTmpl, detailTmpl, cfg.BaseURL, cfg.SDKEndpoint)
 	redirectH := handler.NewRedirectHandler(store, redisCache, recorder, cfg.SDKEndpoint)
 
