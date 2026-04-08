@@ -120,3 +120,31 @@ func TestLinkExpiry(t *testing.T) {
 	require.NotNil(t, got.ExpiresAt)
 	assert.True(t, got.ExpiresAt.Before(time.Now()))
 }
+
+func TestGetMetrics(t *testing.T) {
+	store := newTestDB(t)
+	ctx := context.Background()
+
+	// Create two links: one active, one expired
+	past := time.Now().Add(-time.Hour)
+	l1, err := store.CreateLink(ctx, "met01", "https://a.com", "", nil)
+	require.NoError(t, err)
+	l2, err := store.CreateLink(ctx, "met02", "https://b.com", "", &past)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		store.DeleteLink(ctx, l1.ID)
+		store.DeleteLink(ctx, l2.ID)
+	})
+
+	require.NoError(t, store.RecordClick(ctx, l1.ID, ""))
+	require.NoError(t, store.RecordClick(ctx, l1.ID, ""))
+
+	m, err := store.GetMetrics(ctx)
+	require.NoError(t, err)
+	// At minimum our test rows should appear (other tests may have added rows)
+	assert.GreaterOrEqual(t, m.TotalLinks, int64(2))
+	assert.GreaterOrEqual(t, m.TotalClicks, int64(2))
+	// l1 is active (no expiry), l2 is expired
+	assert.GreaterOrEqual(t, m.ActiveLinks, int64(1))
+	assert.Less(t, m.ActiveLinks, m.TotalLinks+1)
+}
