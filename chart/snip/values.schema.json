@@ -129,6 +129,34 @@
         "enabled": { "type": "boolean" }
       },
       "required": ["enabled"]
+    },
+    "replicated": {
+      "type": "object",
+      "description": "Replicated SDK subchart values"
+    },
+    "global": {
+      "type": "object",
+      "description": "Global values injected by the Replicated registry at install time",
+      "properties": {
+        "security": {
+          "type": "object",
+          "properties": {
+            "allowInsecureImages": { "type": "boolean" }
+          }
+        },
+        "replicated": {
+          "type": "object",
+          "properties": {
+            "channelName":      { "type": "string" },
+            "customerEmail":    { "type": "string" },
+            "customerName":     { "type": "string" },
+            "dockerconfigjson": { "type": "string" },
+            "licenseID":        { "type": "string" },
+            "licenseType":      { "type": "string" },
+            "licenseFields":    { "type": "object" }
+          }
+        }
+      }
     }
   },
   "required": ["image", "service"],
