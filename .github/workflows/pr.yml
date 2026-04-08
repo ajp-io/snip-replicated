@@ -133,6 +133,14 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
 
+      - name: Debug archive customer RBAC
+        if: always()
+        run: |
+          curl -s -X POST \
+            -H "Authorization: ${{ secrets.REPLICATED_API_TOKEN }}" \
+            https://api.replicated.com/vendor/v3/customer/${{ steps.create-customer.outputs.customer-id }}/archive \
+            || true
+
       - name: Archive test customer
         if: always()
         uses: replicatedhq/replicated-actions/archive-customer@v1
