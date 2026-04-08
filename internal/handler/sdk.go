@@ -50,7 +50,11 @@ func SendMetrics(ctx context.Context, store db.Store, endpoint string) {
 	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	req, _ := http.NewRequestWithContext(reqCtx, http.MethodPost, endpoint+"/api/v1/app/custom-metrics", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, endpoint+"/api/v1/app/custom-metrics", bytes.NewReader(body))
+	if err != nil {
+		log.Printf("sdk: sendMetrics request error: %v", err)
+		return
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
