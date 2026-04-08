@@ -39,3 +39,13 @@
 **What went wrong:** GitHub Actions failed immediately at setup with "Can't find 'action.yml', 'action.yaml' or 'Dockerfile' for action". The action does not exist in the `replicatedhq/replicated-actions` repo.
 
 **How it was resolved:** Checked the actual repo contents (`gh api repos/replicatedhq/replicated-actions/contents`). The correct compatibility matrix pattern uses separate actions: `create-customer`, `create-cluster`, `helm-install`, `remove-cluster`, `archive-customer`. This requires the image to be proxied through Replicated (Tier 2 task 2.2). For Tier 1, replaced with `helm lint chart/snip` as a basic chart validation step. Full CMX testing can be added after image proxy is configured in Tier 2.
+# scoped rbac token test Tue Apr  7 16:35:41 EDT 2026
+Tue Apr  7 16:42:04 EDT 2026
+Tue Apr  7 16:47:02 EDT 2026
+Tue Apr  7 16:52:47 EDT 2026
+Tue Apr  7 16:55:01 EDT 2026
+Tue Apr  7 16:58:02 EDT 2026
+Tue Apr  7 17:24:55 EDT 2026
+Wed Apr  8 10:33:13 EDT 2026
+Wed Apr  8 11:08:10 EDT 2026
+Wed Apr  8 12:35:48 EDT 2026

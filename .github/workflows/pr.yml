@@ -135,6 +135,7 @@ jobs:
 
       - name: Archive test customer
         if: always()
+        continue-on-error: true
         uses: replicatedhq/replicated-actions/archive-customer@v1
         with:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
@@ -146,6 +147,7 @@ jobs:
     if: always()
     steps:
       - name: Archive PR channel
+        continue-on-error: true
         uses: replicatedhq/replicated-actions/archive-channel@v1
         with:
           app-slug: snip-enterprise
