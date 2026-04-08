@@ -69,7 +69,7 @@ func main() {
 
 	healthH := handler.NewHealthHandler(store, redisCache)
 	dashboardH := handler.NewDashboardHandler(store, homeTmpl)
-	linksH := handler.NewLinksHandler(store, redisCache, rowTmpl, detailTmpl, cfg.BaseURL)
+	linksH := handler.NewLinksHandler(store, redisCache, rowTmpl, detailTmpl, cfg.BaseURL, cfg.SDKEndpoint)
 	redirectH := handler.NewRedirectHandler(store, redisCache, recorder, cfg.SDKEndpoint)
 
 	// Router

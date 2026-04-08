@@ -11,11 +11,13 @@ class="bg-gray-900 border border-gray-700 rounded-lg p-6 mb-8">
       <input type="url" name="destination" required placeholder="https://example.com/long-path"
         class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
     </div>
+    {{if .CustomSlugsEnabled}}
     <div>
       <label class="block text-xs text-gray-400 mb-1">Custom slug (optional)</label>
       <input type="text" name="slug" placeholder="my-link"
         class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
     </div>
+    {{end}}
     <div>
       <label class="block text-xs text-gray-400 mb-1">Label (optional)</label>
       <input type="text" name="label" placeholder="Product Hunt"
