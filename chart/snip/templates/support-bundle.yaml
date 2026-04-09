@@ -46,12 +46,12 @@ stringData:
         - http:
             collectorName: healthz-check
             get:
-              url: "http://{{ include "snip.fullname" . }}.{{ .Release.Namespace }}/healthz"
+              url: "http://{{ include "snip.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local/healthz"
               timeout: 5s
       analyzers:
         - textAnalyze:
             checkName: Application Health Endpoint
-            fileName: "healthz-check.json"
+            fileName: "http/healthz-check.json"
             regex: '"status":"ok"'
             outcomes:
               - fail:
