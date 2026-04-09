@@ -107,3 +107,6 @@ stringData:
               - pass:
                   when: "== unknown"
                   message: "Distribution is unknown but not explicitly unsupported."
+              - warn:
+                  when: "true"
+                  message: "Distribution has not been explicitly validated with Snip. Proceed with caution and test thoroughly before use in production."
