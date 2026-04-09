@@ -26,9 +26,7 @@ func sdkWithLicenseField(t *testing.T, enabled bool) *httptest.Server {
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
-			"fields": []map[string]any{
-				{"name": "custom_slugs_enabled", "value": val},
-			},
+			"custom_slugs_enabled": map[string]any{"value": val},
 		})
 	}))
 	t.Cleanup(srv.Close)

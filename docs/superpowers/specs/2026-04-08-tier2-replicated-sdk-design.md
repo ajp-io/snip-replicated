@@ -57,7 +57,7 @@ redis:
 
 replicated:
   image:
-    registry: proxy.alexparker.info/proxy/snip-enterprise/registry.replicated.com
+    registry: proxy.alexparker.info
 ```
 
 > Note: Bitnami subchart image override key paths (`image.registry`) should be verified against the specific chart version during implementation — they may differ between PostgreSQL and Redis chart versions.

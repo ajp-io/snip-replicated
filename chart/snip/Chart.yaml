@@ -2,7 +2,7 @@ apiVersion: v2
 name: snip
 description: A self-hosted URL shortener with click analytics
 type: application
-version: 0.1.12
+version: 0.1.14
 appVersion: "0.1.0"
 dependencies:
   - name: postgresql

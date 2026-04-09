@@ -23,15 +23,16 @@ func sdkWithInstanceState(t *testing.T, updateAvailable bool, licenseExpired boo
 			if updateAvailable {
 				updates = []any{map[string]any{"versionLabel": "1.0.1"}}
 			}
-			json.NewEncoder(w).Encode(map[string]any{"updates": updates})
+			json.NewEncoder(w).Encode(updates)
 		case "/api/v1/license/info":
 			if licenseExpired {
 				json.NewEncoder(w).Encode(map[string]any{
-					"expirationPolicy": "expire",
-					"expiresAt":        time.Now().Add(-time.Hour).Format(time.RFC3339),
+					"entitlements": map[string]any{
+						"expires_at": map[string]any{"value": time.Now().Add(-time.Hour).Format(time.RFC3339)},
+					},
 				})
 			} else {
-				json.NewEncoder(w).Encode(map[string]any{"expirationPolicy": "non-expiring"})
+				json.NewEncoder(w).Encode(map[string]any{"entitlements": map[string]any{}})
 			}
 		}
 	}))

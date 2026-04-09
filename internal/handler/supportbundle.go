@@ -24,13 +24,8 @@ func NewSupportBundleHandler(sdkEndpoint string) *SupportBundleHandler {
 func (h *SupportBundleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 
-	bundleDir := filepath.Join(os.TempDir(), fmt.Sprintf("snip-bundle-%d", time.Now().UnixNano()))
-	if err := os.MkdirAll(bundleDir, 0700); err != nil {
-		log.Printf("creating bundle dir: %v", err)
-		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Failed to prepare bundle directory: %v</span>`, err)
-		return
-	}
-	defer os.RemoveAll(bundleDir)
+	bundlePath := filepath.Join(os.TempDir(), fmt.Sprintf("snip-bundle-%d.tar.gz", time.Now().UnixNano()))
+	defer os.Remove(bundlePath)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
 	defer cancel()
@@ -38,7 +33,7 @@ func (h *SupportBundleHandler) Generate(w http.ResponseWriter, r *http.Request) 
 	cmd := exec.CommandContext(ctx, "support-bundle",
 		"--load-cluster-specs",
 		"--interactive=false",
-		"--output", bundleDir,
+		"--output", bundlePath,
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -47,13 +42,11 @@ func (h *SupportBundleHandler) Generate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	matches, err := filepath.Glob(filepath.Join(bundleDir, "*.tar.gz"))
-	if err != nil || len(matches) == 0 {
-		log.Printf("no bundle file found in %s: %v", bundleDir, err)
+	if _, err := os.Stat(bundlePath); err != nil {
+		log.Printf("bundle file not found at %s after generation (output: %s)", bundlePath, out)
 		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Bundle file not found after generation</span>`)
 		return
 	}
-	bundlePath := matches[0]
 
 	data, err := os.ReadFile(bundlePath)
 	if err != nil {
@@ -62,7 +55,7 @@ func (h *SupportBundleHandler) Generate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	uploadURL := h.sdkEndpoint + "/api/v1/app/supportbundle"
+	uploadURL := h.sdkEndpoint + "/api/v1/supportbundle"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadURL, bytes.NewReader(data))
 	if err != nil {
 		log.Printf("building upload request: %v", err)

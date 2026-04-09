@@ -20,6 +20,8 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ include "snip.serviceAccountName" . }}
+      imagePullSecrets:
+        - name: enterprise-pull-secret
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

@@ -18,9 +18,7 @@ func TestLicenseEnabled_True(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/license/fields", r.URL.Path)
 		json.NewEncoder(w).Encode(map[string]any{
-			"fields": []map[string]any{
-				{"name": "custom_slugs_enabled", "value": "true"},
-			},
+			"custom_slugs_enabled": map[string]any{"value": "true"},
 		})
 	}))
 	defer srv.Close()
@@ -58,11 +56,9 @@ func TestGetInstanceState_UpdateAvailable(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/app/updates":
-			json.NewEncoder(w).Encode(map[string]any{
-				"updates": []map[string]any{{"versionLabel": "1.0.1"}},
-			})
+			json.NewEncoder(w).Encode([]map[string]any{{"versionLabel": "1.0.1"}})
 		case "/api/v1/license/info":
-			json.NewEncoder(w).Encode(map[string]any{"expirationPolicy": "non-expiring"})
+			json.NewEncoder(w).Encode(map[string]any{"entitlements": map[string]any{}})
 		}
 	}))
 	defer srv.Close()
@@ -77,11 +73,12 @@ func TestGetInstanceState_LicenseExpired(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/app/updates":
-			json.NewEncoder(w).Encode(map[string]any{"updates": []any{}})
+			json.NewEncoder(w).Encode([]any{})
 		case "/api/v1/license/info":
 			json.NewEncoder(w).Encode(map[string]any{
-				"expirationPolicy": "expire",
-				"expiresAt":        expired,
+				"entitlements": map[string]any{
+					"expires_at": map[string]any{"value": expired},
+				},
 			})
 		}
 	}))
@@ -112,7 +109,7 @@ func TestSendMetrics_PostsToSDK(t *testing.T) {
 	handler.SendMetrics(context.Background(), store, srv.URL)
 
 	require.NotNil(t, received)
-	data, ok := received["data"].([]any)
+	data, ok := received["data"].(map[string]any)
 	require.True(t, ok)
 	assert.Len(t, data, 3)
 }

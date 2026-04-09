@@ -8,7 +8,7 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/app.css">
-  <style>.htmx-indicator{display:none}.htmx-request .htmx-indicator{display:inline}</style>
+  <style>.htmx-indicator{display:none}.htmx-request .htmx-indicator{display:inline}.htmx-request.htmx-indicator{display:inline}</style>
 </head>
 <body class="min-h-screen">
   <nav class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
@@ -21,6 +21,7 @@
         hx-swap="innerHTML"
         hx-indicator="#bundle-spinner"
         hx-disabled-elt="this"
+        hx-on::before-request="document.getElementById('bundle-msg').innerHTML='<span class=\'text-yellow-400 text-sm\'>Generating bundle\u2026</span>'"
         class="text-gray-400 hover:text-gray-200 text-sm px-3 py-2 rounded-md border border-gray-700 hover:border-gray-500 transition-colors">
         <span id="bundle-spinner" class="htmx-indicator">⏳ </span>Generate Bundle
       </button>

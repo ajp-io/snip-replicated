@@ -51,6 +51,7 @@ func (h *LinksHandler) Form(w http.ResponseWriter, r *http.Request) {
 		CustomSlugsEnabled: LicenseEnabled(r.Context(), h.sdkEndpoint, "custom_slugs_enabled"),
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	if err := h.detailTmpl.ExecuteTemplate(w, "link-form", data); err != nil {
 		log.Printf("link-form template error: %v", err)
 	}

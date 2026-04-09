@@ -39,10 +39,10 @@ func SendMetrics(ctx context.Context, store db.Store, endpoint string) {
 	}
 
 	payload := map[string]any{
-		"data": []map[string]any{
-			{"name": "total_links", "value": m.TotalLinks},
-			{"name": "total_clicks", "value": m.TotalClicks},
-			{"name": "active_links", "value": m.ActiveLinks},
+		"data": map[string]any{
+			"total_links":  m.TotalLinks,
+			"total_clicks": m.TotalClicks,
+			"active_links": m.ActiveLinks,
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -62,7 +62,10 @@ func SendMetrics(ctx context.Context, store db.Store, endpoint string) {
 		log.Printf("sdk: sendMetrics error: %v", err)
 		return
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("sdk: sendMetrics unexpected status: %d", resp.StatusCode)
+	}
 }
 
 // LicenseEnabled checks whether a boolean license field is enabled.
@@ -85,19 +88,19 @@ func LicenseEnabled(ctx context.Context, endpoint, field string) bool {
 		return false
 	}
 
-	var result struct {
-		Fields []struct {
-			Name  string `json:"name"`
-			Value string `json:"value"`
-		} `json:"fields"`
+	var result map[string]struct {
+		Value any `json:"value"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false
 	}
 
-	for _, f := range result.Fields {
-		if f.Name == field {
-			return strings.EqualFold(f.Value, "true")
+	if f, ok := result[field]; ok {
+		switch v := f.Value.(type) {
+		case bool:
+			return v
+		case string:
+			return strings.EqualFold(v, "true")
 		}
 	}
 	return false
@@ -115,30 +118,31 @@ func GetInstanceState(ctx context.Context, endpoint string) InstanceState {
 	resp, err := http.DefaultClient.Do(req)
 	cancel()
 	if err == nil && resp.StatusCode == http.StatusOK {
-		var result struct {
-			Updates []json.RawMessage `json:"updates"`
-		}
-		if json.NewDecoder(resp.Body).Decode(&result) == nil {
-			state.UpdateAvailable = len(result.Updates) > 0
+		var updates []json.RawMessage
+		if json.NewDecoder(resp.Body).Decode(&updates) == nil {
+			state.UpdateAvailable = len(updates) > 0
 		}
 		resp.Body.Close()
 	}
 
-	// Check license validity
+	// Check license validity via entitlements.expires_at
 	reqCtx, cancel = context.WithTimeout(ctx, 3*time.Second)
 	req, _ = http.NewRequestWithContext(reqCtx, http.MethodGet, endpoint+"/api/v1/license/info", nil)
 	resp, err = http.DefaultClient.Do(req)
 	cancel()
 	if err == nil && resp.StatusCode == http.StatusOK {
 		var result struct {
-			ExpirationPolicy string `json:"expirationPolicy"`
-			ExpiresAt        string `json:"expiresAt"`
+			Entitlements map[string]struct {
+				Value any `json:"value"`
+			} `json:"entitlements"`
 		}
 		if json.NewDecoder(resp.Body).Decode(&result) == nil {
-			if result.ExpirationPolicy == "expire" && result.ExpiresAt != "" {
-				t, err := time.Parse(time.RFC3339, result.ExpiresAt)
-				if err == nil && t.Before(time.Now()) {
-					state.LicenseInvalid = true
+			if e, ok := result.Entitlements["expires_at"]; ok {
+				if s, ok := e.Value.(string); ok && s != "" {
+					t, err := time.Parse(time.RFC3339, s)
+					if err == nil && t.Before(time.Now()) {
+						state.LicenseInvalid = true
+					}
 				}
 			}
 		}
