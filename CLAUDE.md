@@ -53,3 +53,102 @@ Maintain a `friction-log.md` file at the root of this repo. Any time a problem, 
 - Custom RBAC policy should be scoped for the CI service account token
 - Enterprise Portal tasks use Enterprise Portal v2
 - Support bundle uploads use the Replicated SDK (not manual upload)
+
+## Install Process (Helm via Replicated)
+
+**Always install through Replicated — never raw `helm install` from local chart.**
+
+The full process:
+
+1. **Create a release** — promote the chart to the target channel (e.g. Dev) in Vendor Portal, or via CLI:
+   ```bash
+   replicated release create --promote Dev --chart chart/snip --version <version>
+   ```
+
+2. **Create a CMX cluster** (if none exists):
+   ```bash
+   replicated cluster create --name <name> --distribution eks --version 1.32 --node-count 3
+   replicated cluster kubeconfig <cluster-id>   # sets kubectl context
+   ```
+
+3. **Login to Replicated registry** with the license ID as both username and password:
+   ```bash
+   helm registry login registry.replicated.com \
+     --username <license-id> \
+     --password <license-id>
+   ```
+
+4. **Install** from the Replicated OCI registry:
+   ```bash
+   helm install snip oci://registry.replicated.com/snip-enterprise/dev/snip \
+     --version <chart-version> \
+     --namespace snip --create-namespace \
+     --set baseURL=https://<cluster-host>
+   ```
+
+   The license ID is automatically injected as `global.replicated.*` values by the registry at pull time.
+
+5. **Verify**:
+   ```bash
+   kubectl get pods -n snip
+   kubectl get deployment snip-sdk -n snip
+   kubectl get pods -A -o custom-columns='STATUS:.status.phase,IMAGE:.spec.containers[*].image'
+   ```
+
+**Test customer license ID**: stored in `.env.local` as `REPLICATED_LICENSE_ID`
+**Test channel**: Dev
+
+## Development Workflow (Code Changes → Live Cluster)
+
+When making changes to the app or chart, follow this exact sequence every time:
+
+### 1. Bump versions
+- **App image tag** in `chart/snip/values.yaml` → `image.tag`
+- **Chart version** in `chart/snip/Chart.yaml` → `version`
+- Both must be bumped together; skipping either causes stale deploys.
+
+### 2. Build and push the image
+```bash
+docker build -t ajpio/snip:<new-tag> .
+source .env.local
+echo "$DOCKERHUB_TOKEN" | docker login -u ajpio --password-stdin
+docker push ajpio/snip:<new-tag>
+```
+
+### 3. Package and release the chart
+```bash
+cd chart && helm package snip   # produces snip-<version>.tgz
+REPLICATED_API_TOKEN=<token> replicated release create \
+  --app snip-enterprise \
+  --promote Dev \
+  --chart snip-<version>.tgz \
+  --version <chart-version>
+```
+
+### 4. Upgrade the cluster
+**Never use `--reuse-values` alone** — it swallows new chart defaults (including updated image tags). Always pass changed values explicitly:
+```bash
+helm upgrade snip oci://registry.replicated.com/snip-enterprise/dev/snip \
+  --version <chart-version> \
+  --namespace snip \
+  --reuse-values \
+  --set image.tag=<new-tag>
+```
+
+### 5. Verify the rollout
+```bash
+kubectl rollout status deployment/snip -n snip
+kubectl get pods -n snip -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[*].image'
+# Confirm the snip pod shows the new image tag before testing.
+```
+
+### 6. Restart port-forward after pod replacement
+The port-forward dies when the pod is replaced. After any `helm upgrade`:
+```bash
+pkill -f "port-forward svc/snip" 2>/dev/null; true
+kubectl port-forward svc/snip 8080:80 -n snip > /tmp/port-forward.log 2>&1 &
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/healthz  # expect 200
+```
+
+### "A new version is available" SDK banner
+The Replicated SDK shows this when the channel has a release sequence newer than what the SDK believes is installed. It appears after every new release, even if you just upgraded to it — the SDK polls on a delay. It is **not** an indication that the upgrade failed; verify by checking the running pod image instead.

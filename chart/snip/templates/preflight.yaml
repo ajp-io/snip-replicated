@@ -1,0 +1,112 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "snip.fullname" . }}-preflight
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "snip.labels" . | nindent 4 }}
+    troubleshoot.sh/kind: preflight
+stringData:
+  preflight.yaml: |-
+    apiVersion: troubleshoot.sh/v1beta2
+    kind: Preflight
+    metadata:
+      name: snip-preflight
+    spec:
+      {{- $hasCollectors := or (not .Values.postgresql.enabled) .Values.smtp.enabled }}
+      {{- if $hasCollectors }}
+      collectors:
+        {{- if not .Values.postgresql.enabled }}
+        - tcpConnect:
+            collectorName: external-database
+            address: "{{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}"
+        {{- end }}
+        {{- if .Values.smtp.enabled }}
+        - tcpConnect:
+            collectorName: smtp-server
+            address: "{{ .Values.smtp.host }}:{{ .Values.smtp.port }}"
+        {{- end }}
+      {{- end }}
+      analyzers:
+        {{- if not .Values.postgresql.enabled }}
+        - tcpConnect:
+            checkName: External Database Connectivity
+            collectorName: external-database
+            outcomes:
+              - fail:
+                  when: connection-refused
+                  message: "Cannot connect to the external PostgreSQL database at {{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}. Verify the host, port, and firewall rules."
+              - fail:
+                  when: connection-timeout
+                  message: "Timed out connecting to the external PostgreSQL database at {{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}. Check network connectivity and firewall rules."
+              - pass:
+                  when: connected
+                  message: "External database is reachable."
+        {{- end }}
+        {{- if .Values.smtp.enabled }}
+        - tcpConnect:
+            checkName: SMTP Server Connectivity
+            collectorName: smtp-server
+            outcomes:
+              - fail:
+                  when: connection-refused
+                  message: "Cannot connect to the SMTP server at {{ .Values.smtp.host }}:{{ .Values.smtp.port }}. Verify the host and port are correct."
+              - fail:
+                  when: connection-timeout
+                  message: "Timed out connecting to the SMTP server at {{ .Values.smtp.host }}:{{ .Values.smtp.port }}. Check firewall rules and network connectivity."
+              - pass:
+                  when: connected
+                  message: "SMTP server is reachable."
+        {{- end }}
+        - nodeResources:
+            checkName: Cluster Resource Requirements
+            outcomes:
+              - fail:
+                  when: "sum(cpuCapacity) < 500m"
+                  message: "Insufficient cluster CPU. Snip requires at least 500m total CPU capacity across all nodes."
+              - fail:
+                  when: "sum(memoryCapacity) < 512Mi"
+                  message: "Insufficient cluster memory. Snip requires at least 512Mi total memory capacity across all nodes."
+              - pass:
+                  when: "sum(cpuCapacity) >= 500m"
+                  message: "Cluster has sufficient CPU and memory."
+        - clusterVersion:
+            checkName: Kubernetes Version
+            outcomes:
+              - fail:
+                  when: "< 1.25.0"
+                  message: "Snip requires Kubernetes 1.25 or later. Upgrade your cluster before installing."
+              - pass:
+                  when: ">= 1.25.0"
+                  message: "Kubernetes version is supported."
+        - distribution:
+            checkName: Kubernetes Distribution
+            outcomes:
+              - fail:
+                  when: "== docker-desktop"
+                  message: "Docker Desktop is not a supported distribution. See https://docs.replicated.com/vendor/testing-supported-clusters for supported options."
+              - fail:
+                  when: "== microk8s"
+                  message: "MicroK8s is not a supported distribution. See https://docs.replicated.com/vendor/testing-supported-clusters for supported options."
+              - pass:
+                  when: "== eks"
+                  message: "EKS is a supported distribution."
+              - pass:
+                  when: "== gke"
+                  message: "GKE is a supported distribution."
+              - pass:
+                  when: "== aks"
+                  message: "AKS is a supported distribution."
+              - pass:
+                  when: "== k3s"
+                  message: "K3s is a supported distribution."
+              - pass:
+                  when: "== rke2"
+                  message: "RKE2 is a supported distribution."
+              - pass:
+                  when: "== unknown"
+                  message: "Distribution is unknown but not explicitly unsupported."
+              - warn:
+                  when: "true"
+                  message: "Distribution has not been explicitly validated with Snip. Proceed with caution and test thoroughly before use in production."

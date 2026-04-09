@@ -1,0 +1,130 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "snip.fullname" . }}-support-bundle
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "snip.labels" . | nindent 4 }}
+    troubleshoot.sh/kind: support-bundle
+stringData:
+  support-bundle-spec: |-
+    apiVersion: troubleshoot.sh/v1beta2
+    kind: SupportBundle
+    metadata:
+      name: snip-support-bundle
+    spec:
+      collectors:
+        - logs:
+            collectorName: snip-app-logs
+            selector:
+              - app.kubernetes.io/name=snip
+              - app.kubernetes.io/instance={{ .Release.Name }}
+            namespace: {{ .Release.Namespace | quote }}
+            name: snip/logs
+            maxLines: 10000
+        {{- if .Values.postgresql.enabled }}
+        - logs:
+            collectorName: postgresql-logs
+            selector:
+              - app.kubernetes.io/name=postgresql
+              - app.kubernetes.io/instance={{ .Release.Name }}
+            namespace: {{ .Release.Namespace | quote }}
+            name: postgresql/logs
+            maxAge: 24h
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        - logs:
+            collectorName: redis-logs
+            selector:
+              - app.kubernetes.io/name=redis
+              - app.kubernetes.io/instance={{ .Release.Name }}
+            namespace: {{ .Release.Namespace | quote }}
+            name: redis/logs
+            maxLines: 5000
+        {{- end }}
+        - http:
+            collectorName: healthz-check
+            get:
+              url: "http://{{ include "snip.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local/healthz"
+              timeout: 5s
+      analyzers:
+        - textAnalyze:
+            checkName: Application Health Endpoint
+            fileName: "http/healthz-check.json"
+            regex: '"status":"ok"'
+            outcomes:
+              - fail:
+                  when: "false"
+                  message: "Application health endpoint does not report ok status. Check database and cache connectivity — run kubectl logs on the snip pod for details."
+              - pass:
+                  when: "true"
+                  message: "Application is healthy."
+        - deploymentStatus:
+            checkName: Snip Deployment
+            name: {{ include "snip.fullname" . }}
+            namespace: {{ .Release.Namespace | quote }}
+            outcomes:
+              - fail:
+                  when: "< 1"
+                  message: "Snip deployment has no available replicas — the URL shortener is down and all requests will fail. Check pod events with kubectl describe pod."
+              - pass:
+                  when: ">= 1"
+                  message: "Snip deployment is running."
+        {{- if .Values.postgresql.enabled }}
+        - statefulsetStatus:
+            checkName: PostgreSQL StatefulSet
+            name: {{ include "snip.fullname" . }}-postgresql
+            namespace: {{ .Release.Namespace | quote }}
+            outcomes:
+              - fail:
+                  when: "< 1"
+                  message: "PostgreSQL is not running. The database is unavailable — links cannot be created or followed. Check pod logs with kubectl logs."
+              - pass:
+                  when: ">= 1"
+                  message: "PostgreSQL is running."
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        - statefulsetStatus:
+            checkName: Redis StatefulSet
+            name: {{ include "snip.fullname" . }}-redis-master
+            namespace: {{ .Release.Namespace | quote }}
+            outcomes:
+              - fail:
+                  when: "< 1"
+                  message: "Redis is not running. The cache is unavailable — redirect latency will increase significantly."
+              - pass:
+                  when: ">= 1"
+                  message: "Redis is running."
+        {{- end }}
+        - textAnalyze:
+            checkName: Database Connection Errors in App Logs
+            fileName: "snip/logs/{{ .Release.Namespace }}/*/*.log"
+            regex: "failed to connect to"
+            outcomes:
+              - fail:
+                  when: "true"
+                  message: "Database connection errors detected in Snip app logs. Verify PostgreSQL is running and DATABASE_URL is correct. Check pod events with kubectl describe pod."
+              - pass:
+                  when: "false"
+                  message: "No database connection errors found in Snip app logs."
+        - storageClass:
+            checkName: Default Storage Class
+            outcomes:
+              - fail:
+                  when: "not-found"
+                  message: "No default storage class found. PostgreSQL requires a default storage class to provision its persistent volume. Contact your cluster administrator to set a default storage class."
+              - pass:
+                  when: "available"
+                  message: "Default storage class is available."
+        - nodeResources:
+            checkName: Node Readiness
+            filters:
+              nodeCondition: Ready
+            outcomes:
+              - fail:
+                  when: "count() == 0"
+                  message: "No Ready nodes found. Pod scheduling will fail — check node status with kubectl get nodes."
+              - pass:
+                  when: "count() > 0"
+                  message: "Nodes are Ready."

@@ -1,5 +1,15 @@
 {{template "base" .}}
 {{define "content"}}
+{{if .LicenseInvalid}}
+<div class="mb-4 bg-red-950 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">
+  Your license has expired. Please contact support.
+</div>
+{{end}}
+{{if .UpdateAvailable}}
+<div class="mb-4 bg-yellow-950 border border-yellow-700 text-yellow-300 rounded-lg px-4 py-3 text-sm">
+  A new version of Snip is available.
+</div>
+{{end}}
 <div class="mt-6">
   {{if not .Links}}
   <p id="empty-state" class="text-gray-500 text-center py-16">No links yet. Create one above.</p>

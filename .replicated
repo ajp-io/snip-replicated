@@ -1,1 +1,3 @@
 appSlug: snip-enterprise
+charts:
+  - path: ./chart/snip

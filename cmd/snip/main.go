@@ -68,9 +68,10 @@ func main() {
 	defer recorder.Shutdown()
 
 	healthH := handler.NewHealthHandler(store, redisCache)
-	dashboardH := handler.NewDashboardHandler(store, homeTmpl)
-	linksH := handler.NewLinksHandler(store, redisCache, rowTmpl, detailTmpl, cfg.BaseURL)
-	redirectH := handler.NewRedirectHandler(store, redisCache, recorder)
+	dashboardH := handler.NewDashboardHandler(store, homeTmpl, cfg.SDKEndpoint)
+	linksH := handler.NewLinksHandler(store, redisCache, rowTmpl, detailTmpl, cfg.BaseURL, cfg.SDKEndpoint)
+	redirectH := handler.NewRedirectHandler(store, redisCache, recorder, cfg.SDKEndpoint)
+	supportBundleH := handler.NewSupportBundleHandler(cfg.SDKEndpoint)
 
 	// Router
 	r := chi.NewRouter()
@@ -90,6 +91,7 @@ func main() {
 	r.Post("/links", linksH.Create)
 	r.Get("/links/{id}", linksH.Detail)
 	r.Delete("/links/{id}", linksH.Delete)
+	r.Post("/support-bundle", supportBundleH.Generate)
 
 	// Slug redirect — registered last so it doesn't shadow other routes
 	r.Get("/{slug}", redirectH.ServeHTTP)
@@ -98,7 +100,7 @@ func main() {
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 150 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
 

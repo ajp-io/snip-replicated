@@ -20,13 +20,15 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ include "snip.serviceAccountName" . }}
+      imagePullSecrets:
+        - name: enterprise-pull-secret
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
         - name: wait-for-db
-          image: busybox:1.36
+          image: proxy.alexparker.info/proxy/snip-enterprise/index.docker.io/library/busybox:1.36
           command:
             - sh
             - -c
@@ -73,6 +75,8 @@ spec:
               value: {{ include "snip.databaseURL" . | quote }}
             - name: REDIS_URL
               value: {{ include "snip.redisURL" . | quote }}
+            - name: REPLICATED_SDK_ENDPOINT
+              value: "http://snip-sdk:3000"
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:

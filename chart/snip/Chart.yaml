@@ -2,7 +2,7 @@ apiVersion: v2
 name: snip
 description: A self-hosted URL shortener with click analytics
 type: application
-version: 0.1.0
+version: 0.1.14
 appVersion: "0.1.0"
 dependencies:
   - name: postgresql
@@ -13,3 +13,6 @@ dependencies:
     version: "20.11.3"
     repository: "https://charts.bitnami.com/bitnami"
     condition: redis.enabled
+  - name: replicated
+    version: "1.19.1"
+    repository: "oci://registry.replicated.com/library"

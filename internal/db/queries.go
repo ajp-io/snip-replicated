@@ -145,3 +145,14 @@ func (d *DB) GetTopReferrers(ctx context.Context, linkID int64) ([]model.Referre
 	}
 	return results, rows.Err()
 }
+
+func (d *DB) GetMetrics(ctx context.Context) (Metrics, error) {
+	var m Metrics
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM links)                                                 AS total_links,
+			(SELECT COUNT(*) FROM click_events)                                          AS total_clicks,
+			(SELECT COUNT(*) FROM links WHERE expires_at IS NULL OR expires_at > NOW()) AS active_links
+	`).Scan(&m.TotalLinks, &m.TotalClicks, &m.ActiveLinks)
+	return m, err
+}

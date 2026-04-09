@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"html/template"
 	"log"
@@ -19,27 +20,47 @@ import (
 
 // LinksHandler handles link CRUD and the link-form partial.
 type LinksHandler struct {
-	store      db.Store
-	cache      cache.Cache
-	rowTmpl    *template.Template // rendered on successful create (HTMX swap)
-	detailTmpl *template.Template // full link detail page + form partial
-	baseURL    string
+	store       db.Store
+	cache       cache.Cache
+	rowTmpl     *template.Template
+	detailTmpl  *template.Template
+	baseURL     string
+	sdkEndpoint string
 }
 
-func NewLinksHandler(store db.Store, cache cache.Cache, rowTmpl, detailTmpl *template.Template, baseURL string) *LinksHandler {
-	return &LinksHandler{store: store, cache: cache, rowTmpl: rowTmpl, detailTmpl: detailTmpl, baseURL: baseURL}
+// LinkFormData is the template context for the link creation form.
+type LinkFormData struct {
+	Error              string
+	CustomSlugsEnabled bool
+}
+
+func NewLinksHandler(store db.Store, cache cache.Cache, rowTmpl, detailTmpl *template.Template, baseURL, sdkEndpoint string) *LinksHandler {
+	return &LinksHandler{
+		store:       store,
+		cache:       cache,
+		rowTmpl:     rowTmpl,
+		detailTmpl:  detailTmpl,
+		baseURL:     baseURL,
+		sdkEndpoint: sdkEndpoint,
+	}
 }
 
 // Form serves GET /links/new — the inline create-link form.
 func (h *LinksHandler) Form(w http.ResponseWriter, r *http.Request) {
+	data := LinkFormData{
+		CustomSlugsEnabled: LicenseEnabled(r.Context(), h.sdkEndpoint, "custom_slugs_enabled"),
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.detailTmpl.ExecuteTemplate(w, "link-form", nil); err != nil {
+	w.Header().Set("Cache-Control", "no-store")
+	if err := h.detailTmpl.ExecuteTemplate(w, "link-form", data); err != nil {
 		log.Printf("link-form template error: %v", err)
 	}
 }
 
 // Create handles POST /links.
 func (h *LinksHandler) Create(w http.ResponseWriter, r *http.Request) {
+	customSlugsEnabled := LicenseEnabled(r.Context(), h.sdkEndpoint, "custom_slugs_enabled")
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
@@ -52,14 +73,21 @@ func (h *LinksHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if destination == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		h.renderFormError(w, "Destination URL is required.")
+		h.renderFormError(w, "Destination URL is required.", customSlugsEnabled)
 		return
 	}
 
 	u, err := url.Parse(destination)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		h.renderFormError(w, "Destination must be a valid http:// or https:// URL.")
+		h.renderFormError(w, "Destination must be a valid http:// or https:// URL.", customSlugsEnabled)
+		return
+	}
+
+	// Reject custom slugs when entitlement is disabled.
+	if customSlug != "" && !customSlugsEnabled {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		h.renderFormError(w, "Custom slugs require a higher license tier.", customSlugsEnabled)
 		return
 	}
 
@@ -78,7 +106,7 @@ func (h *LinksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if !slug.Validate(finalSlug) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		h.renderFormError(w, "Slug must be 3–64 characters: letters, numbers, hyphens, underscores only.")
+		h.renderFormError(w, "Slug must be 3–64 characters: letters, numbers, hyphens, underscores only.", customSlugsEnabled)
 		return
 	}
 
@@ -93,9 +121,11 @@ func (h *LinksHandler) Create(w http.ResponseWriter, r *http.Request) {
 	link, err := h.store.CreateLink(r.Context(), finalSlug, destination, label, expiresAt)
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		h.renderFormError(w, "Could not create link. The slug may already be taken.")
+		h.renderFormError(w, "Could not create link. The slug may already be taken.", customSlugsEnabled)
 		return
 	}
+
+	go SendMetrics(context.Background(), h.store, h.sdkEndpoint)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.rowTmpl.ExecuteTemplate(w, "link-row", model.LinkWithCount{Link: *link}); err != nil {
@@ -103,10 +133,11 @@ func (h *LinksHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *LinksHandler) renderFormError(w http.ResponseWriter, msg string) {
+func (h *LinksHandler) renderFormError(w http.ResponseWriter, msg string, customSlugsEnabled bool) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if h.detailTmpl != nil {
-		if err := h.detailTmpl.ExecuteTemplate(w, "link-form", map[string]string{"Error": msg}); err != nil {
+		data := LinkFormData{Error: msg, CustomSlugsEnabled: customSlugsEnabled}
+		if err := h.detailTmpl.ExecuteTemplate(w, "link-form", data); err != nil {
 			log.Printf("link-form error template error: %v", err)
 		}
 	}
@@ -162,7 +193,6 @@ func (h *LinksHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch link first for cache eviction (ignore not-found, it'll be caught by DeleteLink)
 	link, _ := h.store.GetLinkByID(r.Context(), id)
 
 	err = h.store.DeleteLink(r.Context(), id)
@@ -178,6 +208,8 @@ func (h *LinksHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if link != nil {
 		_ = h.cache.Del(r.Context(), cacheKeyPrefix+link.Slug)
 	}
+
+	go SendMetrics(context.Background(), h.store, h.sdkEndpoint)
 
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Redirect", "/")

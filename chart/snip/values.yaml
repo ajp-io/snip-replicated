@@ -1,11 +1,16 @@
 ## Snip — URL shortener Helm chart values
 
+## Allow proxied (non-Bitnami-registry) images in subcharts
+global:
+  security:
+    allowInsecureImages: true
+
 ## Number of app replicas
 replicaCount: 1
 
 image:
-  repository: ajpio/snip
-  tag: "0.1.0"
+  repository: proxy.alexparker.info/proxy/snip-enterprise/index.docker.io/ajpio/snip
+  tag: "0.3.2"
   pullPolicy: IfNotPresent
 
 ## Base URL of the app (used to build short links)
@@ -87,12 +92,30 @@ externalRedis:
   existingSecret: ""
   password: ""
 
+## Optional SMTP server — when enabled, preflight checks TCP connectivity
+smtp:
+  enabled: false
+  host: ""
+  port: 587
+
+## Replicated SDK subchart — renamed for branding
+replicated:
+  nameOverride: snip-sdk
+  image:
+    registry: proxy.alexparker.info
+  imagePullSecrets:
+    - name: enterprise-pull-secret
+
 ## Embedded PostgreSQL subchart (bitnami/postgresql)
 ## Set enabled: false to use externalDatabase above
 postgresql:
   enabled: true
   image:
+    registry: proxy.alexparker.info/proxy/snip-enterprise/index.docker.io
     tag: latest
+  global:
+    imagePullSecrets:
+      - enterprise-pull-secret
   auth:
     username: snip
     password: snip
@@ -114,7 +137,11 @@ postgresql:
 redis:
   enabled: true
   image:
+    registry: proxy.alexparker.info/proxy/snip-enterprise/index.docker.io
     tag: latest
+  global:
+    imagePullSecrets:
+      - enterprise-pull-secret
   architecture: standalone
   auth:
     enabled: false
