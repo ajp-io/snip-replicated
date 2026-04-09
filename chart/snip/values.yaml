@@ -10,7 +10,7 @@ replicaCount: 1
 
 image:
   repository: proxy.alexparker.info/proxy/snip-enterprise/index.docker.io/ajpio/snip
-  tag: "0.2.5"
+  tag: "0.3.0"
   pullPolicy: IfNotPresent
 
 ## Base URL of the app (used to build short links)
