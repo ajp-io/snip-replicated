@@ -14,6 +14,8 @@ stringData:
     metadata:
       name: snip-preflight
     spec:
+      {{- $hasCollectors := or (not .Values.postgresql.enabled) .Values.smtp.enabled }}
+      {{- if $hasCollectors }}
       collectors:
         {{- if not .Values.postgresql.enabled }}
         - tcpConnect:
@@ -25,6 +27,7 @@ stringData:
             collectorName: smtp-server
             address: "{{ .Values.smtp.host }}:{{ .Values.smtp.port }}"
         {{- end }}
+      {{- end }}
       analyzers:
         {{- if not .Values.postgresql.enabled }}
         - tcpConnect:
